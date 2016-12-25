@@ -1,0 +1,26 @@
+{
+	"name": "expose",
+	"version": "0.0.0",
+	"description": "A module to view all keys (enum/nonenum/inherited/symbols) of an object across its prototype chain.",
+	"main": "index.js",
+	"scripts": {
+		"test": "jasmine-node spec --autotest --growl --watch ."
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/MegaJ/expose.git"
+	},
+	"keywords": [
+		"expose",
+		"debug",
+		"properties",
+		"property",
+		"prototype"
+	],
+	"author": "MegaJ",
+	"license": "BSD-2-Clause",
+	"bugs": {
+		"url": "https://github.com/MegaJ/expose/issues"
+	},
+	"homepage": "https://github.com/MegaJ/expose#readme"
+}
