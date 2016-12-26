@@ -152,9 +152,7 @@ describe("expose", () => {
 		describe("allows values to be kept", () => {
 			// spies are still active here
 			it("for allKeysNested", () => {
-				//spyOn(expose, "allKeysNested");
 				runs(asyncCb.bind(null, {whatIsGoingOn: true, keepValues: true, customInspect: false, method: "allKeysNested"}, "allKeysNested"));
-				//runs(asyncCb.bind(null, {method: "allKeysNested", keepValues: true}, "allKeysNested"));
 				waitsFor(() => { return flag; }, "The pipe was too slow", 100);
 				runs(() => {
 					expect(expose.allKeysNested).toHaveBeenCalledWith(jasmine.any(Object), {
@@ -164,6 +162,7 @@ describe("expose", () => {
 						objectMode: true,
 						exposeMethod: expose["allKeysNested"],
 						verbose: false,
+						regexp: false
 					})
 				});
 			});
@@ -180,6 +179,7 @@ describe("expose", () => {
 						objectMode: true,
 						exposeMethod: expose["allKeysArrays"],
 						verbose: false,
+						regexp: false
 					})
 				});
 			});
@@ -215,8 +215,14 @@ describe("expose", () => {
 			let origAncestorCount = 0;
 			while(eobj || oobj) {
 				//console.log(enumizedAncestorCount, " and ", origAncestorCount);
-				eobj ? enumizedAncestorCount++ && (eobj = Object.getPrototypeOf(eobj)) : null;
-				oobj ? origAncestorCount++ && (oobj = Object.getPrototypeOf(oobj)) : null;
+				if (eobj) {
+					enumizedAncestorCount++;
+					eobj = Object.getPrototypeOf(eobj);
+				}
+				if (oobj) {
+					origAncestorCount++;
+					oobj = Object.getPrototypeOf(oobj);
+				}
 //				console.log("eobj :", eobj, " and oobj: ", oobj);
 			}
 
@@ -242,6 +248,20 @@ describe("expose", () => {
 			filteredObj = enumeralize(objWithNonenum, {regexp: /__/});
 			expect(filteredObj.prop).toBeUndefined();
 		});
+		it("keeps symbols as symbols if told to", () => {
+			let objWithNonenum = {};
+			Object.defineProperty(objWithNonenum, "prop", {
+				value: "super-hidden",
+				writable: false,
+				enumerable: false
+			});
+			const testSymbol = Symbol("testSymbol");
+			objWithNonenum[testSymbol] = "You rang?";
+			const enumeralizedObj = enumeralize(objWithNonenum, {keepSymbols: true});
+			//console.log("enumeralized---> ", enumeralizedObj);
+			expect(Object.getOwnPropertySymbols(enumeralizedObj).length).toBe(1);
+			expect(enumeralizedObj[testSymbol]).toBeDefined();
+		});
 	});
 
 	describe("allKeysNested", () => {
@@ -252,7 +272,6 @@ describe("expose", () => {
 			expect(exposedObj.length).toEqual(2);
 			expect(exposedObj[0].length).toBe(1)
 		});
-
 		it("exposes ancestors' symbols", () => {
 			const myChild = Object.create(objWithSymbol);
 			const exposedObj = allKeysArrays(myChild);
@@ -260,12 +279,10 @@ describe("expose", () => {
 			expect(exposedObj[0].length).toBe(0);
 			expect(exposedObj[1].length).toBe(1);
 		});
-
 		it("exposes nonenumerables", () => {
 			const exposedObj = allKeysArrays(objWithNonenum);
 			expect(exposedObj[0].length).toEqual(1);
 		});
-
 		it("filters on supplied regexes", () => {
 			var filteredObj = allKeysNested(objWithNonenum, {regexp: /pro/});
 			expect(filteredObj.prop).toEqual(true);
@@ -274,6 +291,36 @@ describe("expose", () => {
 
 			filteredObj = allKeysNested(objWithNonenum, {regexp: /__/});
 			expect(filteredObj.prop).toBeUndefined();
+		});
+		it("keeps symbols as symbols if told to", () => {
+			let objWithNonenum = {};
+			Object.defineProperty(objWithNonenum, "prop", {
+				value: "super-hidden",
+				writable: false,
+				enumerable: false
+			});
+			objWithNonenum[Symbol("testSymbol")] = "You rang?";
+			const exposedObj = allKeysNested(objWithNonenum, {keepSymbols: true});
+			
+			// console.log("exposed!---> ", exposedObj);
+			// console.log("desymbolized ---> ", allKeysNested(objWithNonenum));
+			expect(Object.getOwnPropertySymbols(exposedObj).length).toBe(1);
+		});
+		it("keeps symbols matched by regexes based on Symbols.toString()", () => {
+			let objWithNonenum = {};
+			Object.defineProperty(objWithNonenum, "prop", {
+				value: "super-hidden",
+				writable: false,
+				enumerable: false
+			});
+			const testSymbol = Symbol("testSymbol");
+			objWithNonenum[testSymbol] = "You rang?";
+			const exposedObj = allKeysNested(objWithNonenum, {keepSymbols: true});
+			
+			// console.log("exposed!---> ", exposedObj);
+			// console.log("desymbolized ---> ", allKeysNested(objWithNonenum));
+			expect(Object.getOwnPropertySymbols(exposedObj).length).toBe(1);
+			expect(exposedObj[testSymbol]).toBeDefined();
 		});
 	});
 
@@ -303,15 +350,32 @@ describe("expose", () => {
 			const exposedObj = allKeysArrays(objWithNonenum);
 			expect(exposedObj[0].length).toEqual(1);
 		});
-
 		it("filters on supplied regexes if any", () => {
-			var filteredObj = allKeysArrays(objWithNonenum, {regexp: /pro/});
+			const arrayPro = allKeysArrays(objWithNonenum, {regexp: /pro/});
+			expect(arrayPro[0]).toContain("prop");
 
-			expect(filteredObj[0]).toContain("prop");
+			const array__ = allKeysArrays(objWithNonenum, {regexp: /__/});
+			expect(array__[0].length).toBe(0);
+			expect(array__[1]).toContain('__proto__');
+		});
+		it("keeps symbols matched by regexes based on Symbols.toString()", () => {
+// 			let objWithNonenum = {};
+// 			Object.defineProperty(objWithNonenum, "prop", {
+// 				value: "super-hidden",
+// 				writable: false,
+// 				enumerable: false
+// 			});
+// 			const propertySymbol = Symbol["propertySymbol"];
+// 			objWithNonenum[propertySymbol] = "You rang?";
+// 			var filteredObj = allKeysNested(objWithNonenum, {regexp: /pro/, keepSymbols: true});
 
-			filteredObj = allKeysArrays(objWithNonenum, {regexp: /__/});
-			console.log("filteredObj: ", filteredObj);
-			expect(filteredObj[0].length).toBe(0);
+// 			expect(filteredObj.prop).toBeTruthy();
+// 			expect(filteredObj[propertySymbol]).toBeTruthy();
+
+// 			filteredObj = allKeysNested(objWithNonenum, {regexp: /__/, keepSymbols : true});
+// //			console.log("filteredObj: ", filteredObj);
+// 			expect(filteredObj.prop).toBeUndefined();
+// 			expect(filteredObj.__proto__).toBeDefined();
 		});
 	});
 	

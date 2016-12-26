@@ -21,7 +21,7 @@ const supportedOptions = {
 	verbose: true,
 	customInspect: true,
 	objectMode: true, //but really, we force the stream into object mode, ignore user option
-	// for all other functions
+	// for all functions
 	keepValues: true,
 	keepSymbols: true,
 	regexp: true
@@ -35,12 +35,11 @@ function setOptionsObj(from, to) {
 		customInspect: to.customInspect = false,
 		keepValues: to.keepValues = false,
 		keepSymbols: to.keepSymbols = false,
-		//regexp: regexp = false, // can have trailing comma, which is nice
+		regexp: to.regexp = false, // can have trailing comma, which is nice and unexpected
 	} = from)
 	to.exposeMethod = expose[method] || expose.allKeysFlat;
 	return to;
 }
-
 
 const ExposeStream  = function(options) {
 	if (!(this instanceof ExposeStream)) {
@@ -82,6 +81,8 @@ const expose = {
 	   Therefore, start from the oldest ancestor and build up an object by going down the 
 	   prototype chain.
 
+	   No keepValues option.
+
 	   returns Object
 	 **/
 	enumeralize(obj, _options) {
@@ -102,19 +103,20 @@ const expose = {
 		for(let i = prototypeChain.length - 1; i >= 0; i--) {
 			currEnumerableObject = currEnumerableObject ? Object.create(currEnumerableObject) : Object.setPrototypeOf({}, null); // one-time-call
 			currPrototype = prototypeChain[i];
-			let propAssigner = propAssignerBase.bind(null, currEnumerableObject, currPrototype, regexp);
+			let propAssigner = propAssignerBase.bind(null, currEnumerableObject, currPrototype, regexp, keepSymbols);
 			
 			Object.getOwnPropertyNames(currPrototype).forEach(propAssigner)
 			Object.getOwnPropertySymbols(currPrototype).forEach(propAssigner);
 		}
 
 
-		function propAssignerBase(propsMap, obj, regexp, key) {
-			const enumerableKey = typeof key === 'symbol' ? key.toString() : key
+		function propAssignerBase(propsMap, obj, regexp, keepSymbols, key) {
+			let enumerableKey;
+			enumerableKey = (!keepSymbols && typeof key === 'symbol') ? key.toString() : key;
 			const descriptor = Object.getOwnPropertyDescriptor(obj, key);
 			descriptor.enumerable = true;
 			
-			if (regexp && !(enumerableKey.match(regexp))) return;
+			if (regexp && !(enumerableKey.toString().match(regexp))) return; // will the .toString() ever be overridden..?
 			if (descriptor.get || descriptor.set || descriptor.value || descriptor.writable || key === 'arguments' || key === 'caller') {
 				Object.defineProperty(propsMap, enumerableKey, descriptor);
 			} else {
@@ -139,20 +141,20 @@ const expose = {
 
 	   returns Object
 	**/
-	allKeysNested(obj, {regexp, keepValues, keepSymbols} = {}) { // asNested
-		//const options = _options || {};
-		//const {regexp, keepValues, keepSymbols} = options;
+	allKeysNested(obj, _options) { // asNested
+		const options = _options || {};
+		const {regexp, keepValues, keepSymbols} = options;
 		
 		var lowestDescendentProps = {};
 		var props = lowestDescendentProps;
 		// argument order is important since I'm using this as a base to .bind() on
-		const propAssignerBase = function(propsMap, obj, regexp, key)  {
+		const propAssignerBase = function(propsMap, obj, regexp, keepSymbols, key)  {
 			
-			const enumerableKey = (typeof key === 'symbol') ? key.toString() : key;
+			const enumerableKey = (!keepSymbols && typeof key === 'symbol') ? key.toString() : key;
 			const descriptor = Object.getOwnPropertyDescriptor(obj, key);
 			descriptor.enumerable = true;
 			
-			if (regexp && !(enumerableKey.match(regexp))) return;
+			if (regexp && !(enumerableKey.toString().match(regexp))) return;
 			
 			if (!keepValues){
 				propsMap[enumerableKey] = true;
@@ -165,7 +167,7 @@ const expose = {
 			throw new Error("propAssignerBase broke!");
 		}
 		
-		var propAssigner = propAssignerBase.bind(null, props, obj, regexp);
+		var propAssigner = propAssignerBase.bind(null, props, obj, regexp, keepSymbols);
 		var objParent;
 		while(obj) {
 			Object.getOwnPropertyNames(obj).forEach(propAssigner)
@@ -177,7 +179,7 @@ const expose = {
 				props = props["__objParent"];
 			}
 			obj = objParent;
-			propAssigner = propAssignerBase.bind(null, props, obj, regexp);
+			propAssigner = propAssignerBase.bind(null, props, obj, regexp, keepSymbols);
 		}
 		
 		return lowestDescendentProps;
@@ -198,7 +200,7 @@ const expose = {
 	**/
 	allKeysArrays(obj, options) { // asArrays
 		options = options || {};
-		const {regexp} = options;
+		const {keepValues, keepSymbols, regexp} = options;
 		var props = [];
 		var num = 0;
 		// personally I dislike explicit branching when I can just write
@@ -233,7 +235,9 @@ const expose = {
 
 	   returns Array
 	**/
-	allKeysFlat(obj, options) { // asFlat
+	allKeysFlat(obj, options) { // asFlat? flat? Offer keys or values only, not both, since it's flat
+		options = options || {};
+		const {keepValues, keepSymbols, regexp} = options;
 		
 		var props = [];
 		while(obj) {
@@ -255,7 +259,7 @@ function warnUser(options) {
 		if (!(passedInOp in supportedOptions)) { unknownOpts.push(passedInOp)}
 	});
 	if ('objectMode' in options && !options.objectMode) {
-		console.log("Expose forces objectMode to be true regardless of the value passed to expose.stream()");
+		console.warn("Expose forces objectMode to be true regardless of the value passed to expose.stream()'s options object");
 	}
 	if (unknownOpts.length > 0) console.log(`expose doesn\'t support these options passed in: ${unknownOpts}`,
 											`\n but will pass them along to the constructor for the transform stream.`)

@@ -143,27 +143,43 @@ throughStream.pipe(exposeStream);
     const util = require('util');
     console.log(util.inspect({customInspect: false}));
 
+### Prototypes of primitives
+
+``` javascript
+const mySym = Symbol("testSymbol");
+const mySymPrototype = Object.getPrototypeOf(mySym);
+
+mySymPrototype.isPrototypeOf(mySym); // false...
+Symbol.prototype === mySymPrototype; // true....
+```
+
+This is because in ES6, .getPrototypeOf() under-the-hood coreces primitives to Object first. When expose gives you objects, it also coerces primitives to objects first, so just be aware of that.
+
+``` javascript
+mySymPrototype.isPrototypeOf(Object(mySym)); // true
+```
 ### Not on npm
 
-  Yep.
+  I could.
   
 ## Tests
 
     npm test
-
 
 ## TODO
 
   * consider regex feature to grab matching properties -- on it
   * allow saving pairs for the methods that return arrays
   * write tests
-  * learn symantic versioning
+  * learn semantic versioning
   * refactor propAssignerBase() so multiple functions can use it
   * rename functions
+  * warn user when using allKeysArrays or allKeysFlat..they can only save keys OR values, but not both
+  * strip 'Symbol' from .toString() on symbols.
 
 ## Release History
 
-* 0.0.0 Haven't learned about symantic versioning yet.
+* 0.0.0 Haven't learned about semantic versioning yet.
 
 ## License
 
