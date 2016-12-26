@@ -306,10 +306,12 @@ describe("expose", () => {
 
 		it("filters on supplied regexes if any", () => {
 			var filteredObj = allKeysArrays(objWithNonenum, {regexp: /pro/});
-			expect(filteredObj.prop).toBeTruthy();
+
+			expect(filteredObj[0]).toContain("prop");
 
 			filteredObj = allKeysArrays(objWithNonenum, {regexp: /__/});
-			expect(filteredObj.prop).toBeUndefined();
+			console.log("filteredObj: ", filteredObj);
+			expect(filteredObj[0].length).toBe(0);
 		});
 	});
 	

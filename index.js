@@ -16,54 +16,41 @@ const {Transform} = require('stream');
 const util = require('util');
 
 const supportedOptions = {
-	method: true,
+	// for stream()
+	method: true, 
 	verbose: true,
 	customInspect: true,
-	keepValues: true,
-	objectMode: true, //but really, we force the stream into object mode
+	objectMode: true, //but really, we force the stream into object mode, ignore user option
+	// for all other functions
 	keepValues: true,
 	keepSymbols: true,
 	regexp: true
 }
 
-function defaultOptions(arg1) {
-	//console.log("arg1:------->  ", arg1);
-	return {
-		method: "allKeysFlat",
-		objectMode: true,
-		verbose: false,
-		customInspect: false,
-		keepValues: false,
-		keepSymbols: false,
-		regexp: false
-	}
+function setOptionsObj(from, to) {
+	({
+		method = "allKeysFlat",
+		objectMode: to.objectMode = true,
+		verbose: to.verbose = false,
+		customInspect: to.customInspect = false,
+		keepValues: to.keepValues = false,
+		keepSymbols: to.keepSymbols = false,
+		//regexp: regexp = false, // can have trailing comma, which is nice
+	} = from)
+	to.exposeMethod = expose[method] || expose.allKeysFlat;
+	return to;
 }
 
-// how to give this regexes?
-// I want to do fancy destructuring here
-const ExposeStream  = function(options) { // You can have default options in es6, but can you do them with destructuring?
+
+const ExposeStream  = function(options) {
 	if (!(this instanceof ExposeStream)) {
 		return new ExposeStream(options);
 	}
 	
-	options = options || {};
-	this.opt = {}; 
-	((options) => {
-		opt = this.opt; // 3 char short-hand
-		({
-			method = "allKeysFlat",
-			objectMode: opt.objectMode = true,
-			verbose: opt.verbose = false,
-			customInspect: opt.customInspect = false,
-			keepValues: opt.keepValues = false,
-			keepSymbols: opt.keepSymbols = false,
-			//regexp: regexp = false, // can have trailing comma, which is nice
-		} = options)
-		opt.exposeMethod = expose[method] || expose.allKeysFlat
-	})(options)
-
-	if (opt.verbose) warnUser(options);
-
+	//options = options || {};
+	if (options.verbose) warnUser(options);
+	setOptionsObj(options, this.opt = {});
+	
 	Transform.call(this, this.opt);
 }
 
@@ -71,7 +58,7 @@ ExposeStream.prototype._transform = function(obj, enc, cb) {
 	const exposedObj = this.opt.exposeMethod(obj, this.opt);
 	if (this.opt.verbose) {
 		console.log("");
-		console.log(util.inspect(exposedObj, {customInspect: this.opt.customInspect})); //careful about this references here
+		console.log(util.inspect(exposedObj, {customInspect: this.opt.customInspect})); //careful about 'this' references here
 		console.log("");
 	}
 
@@ -80,9 +67,11 @@ ExposeStream.prototype._transform = function(obj, enc, cb) {
 util.inherits(ExposeStream, Transform);
 
 const expose = {
-	
+	/** I'm taken to one-liners nowadays. Not sure if this is hacks, but guards against TypeErrors when destructuring.
+		Still provides a clean api to the user while being readable...so I guess it's fine.
+	 **/
 	stream(options) {
-		return new ExposeStream(options);
+		return new ExposeStream(options = options || {}); 
 	},
 
 	/**
@@ -208,14 +197,32 @@ const expose = {
 	   returns Array
 	**/
 	allKeysArrays(obj, options) { // asArrays
-		
+		options = options || {};
+		const {regexp} = options;
 		var props = [];
 		var num = 0;
-		while(obj) {
-			props[num] = Object.getOwnPropertyNames(obj);
-			props[num] = props[num++].concat(Object.getOwnPropertySymbols(obj));
-			obj = Object.getPrototypeOf(obj);
+		// personally I dislike explicit branching when I can just write
+		// two blocks while(obj && regexp) and while(obj)... but it might save cycles :/
+		if (regexp) { 
+			while(obj) {
+				props[num] = Object.getOwnPropertyNames(obj).filter((prop) => {
+					if (!prop.match(regexp)) return false;
+					return true;
+				})
+				props[num] = props[num++].concat(Object.getOwnPropertyNames(obj).filter((prop) => {
+					if (!prop.match(regexp)) return false;
+					return true;
+				}));
+				obj = Object.getPrototypeOf(obj);
+			}
+		} else {
+			while(obj) {
+				props[num] = Object.getOwnPropertyNames(obj);
+				props[num] = props[num++].concat(Object.getOwnPropertySymbols(obj));
+				obj = Object.getPrototypeOf(obj);
+			}
 		}
+		
 		return props;
 	},
 
@@ -241,10 +248,15 @@ const expose = {
 module.exports = expose;
 
 function warnUser(options) {
+	options = options || {};
 	var unknownOpts = [];
+	
 	Object.keys(options).forEach((passedInOp) => {
 		if (!(passedInOp in supportedOptions)) { unknownOpts.push(passedInOp)}
 	});
+	if ('objectMode' in options && !options.objectMode) {
+		console.log("Expose forces objectMode to be true regardless of the value passed to expose.stream()");
+	}
 	if (unknownOpts.length > 0) console.log(`expose doesn\'t support these options passed in: ${unknownOpts}`,
 											`\n but will pass them along to the constructor for the transform stream.`)
 }
