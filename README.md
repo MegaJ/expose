@@ -81,6 +81,7 @@ Make a stream object.
 ```
 You might also consider using a through2 instead to make a stream and use expose's methods inside through2's API.
 #### enumeralize(obj [, options])
+If `obj` is a function, the output will not be invokable (because I use Object.create() in a loop). Will fix, but not yet.
 Returns a copy of an object. Coerces symbols to strings by default (collisions possible). Preserves a mirrored prototype chain. Not exactly a deep copy(?).
 
 ```javascript

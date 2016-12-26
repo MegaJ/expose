@@ -100,6 +100,10 @@ const expose = {
 		}
 
 		var currEnumerableObject;
+		// NOTE, functions become non invokable! D: Object.create() with a function argument should still create an object that is invokable...
+		// not sure if what I have here is a deep copy // amend: probably
+		// So if I see a function, it's probably best to try and deep copy it and then walk up the prototype
+		// chain and make all things enumerable string keys (based on options)
 		for(let i = prototypeChain.length - 1; i >= 0; i--) {
 			currEnumerableObject = currEnumerableObject ? Object.create(currEnumerableObject) : Object.setPrototypeOf({}, null); // one-time-call
 			currPrototype = prototypeChain[i];
