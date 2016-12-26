@@ -72,19 +72,80 @@ console.log(allKeysNested(expose, {keepvalues: true}));
 ## API
 
 #### stream
-Make a stream object. You might also consider using a through2 instead to make a stream and use expose's methods inside through2's API.
-	 
-    const exposeStream = expose.stream({
+Make a stream object. 
+``` javascript
+    var exposeStream = expose.stream({
         method: "allKeysArrays",
         keepValues: true
 	});
+```
+You might also consider using a through2 instead to make a stream and use expose's methods inside through2's API.
+#### enumeralize(obj [, options])
+Returns a copy of an object. Coerces symbols to strings by default (collisions possible). Preserves a mirrored prototype chain. Not exactly a deep copy(?).
 
-#### enumeralize
+```javascript
+const {enumeralize} = require('expose');
 
-allKeysNested: [Function: allKeysNested],
-allKeysArrays: [Function: allKeysArrays],
-allKeysFlat: [Function: allKeysFlat],
+var objWithInvisibles = {};
+objWithInvisibles[Symbol.for("aSymbol")] = "symbol val"
+Object.defineProperty(objWithInvisibles, "aNonenumerable", {
+	value: "super-hidden",
+	enumerable: false
+});
+console.log(objWithInvisibles); // {}
 
+var enumeralizedObj = enumeralize(objWithInvisibles);
+console.log(enumeralizedObj);
+
+/** 
+{ aNonenumerable: 'super-hidden',
+  'Symbol(aSymbol)': 'symbol val' }
+**/
+
+```
+
+#### allKeysNested(obj [, options])
+See Easy Usage section for example format.
+
+#### allKeysArrays(obj [, options])
+Get all keys in this format:
+
+    [
+      [] // obj props
+      [] // obj's parent's props
+      [] // obj's parent's parent's props
+    ...
+    ]
+No symbol coercion to strings. Doesn't keep values.
+#### allKeysFlat(obj [, options])
+Get all keys in this format:
+
+    [...]
+No symbol coercion to strings. Doesn't keep values.
+#### The options object
+
+```javascript
+// not actual sourcecode
+const defaultOptions = {
+	// for stream()
+	method: "allKeysFlat",
+	objectMode: true,
+	verbose: false,
+	customInspect: false,
+	// for all functions
+	keepValues: false,
+	keepSymbols: false,
+	regexp: false
+}
+```
+* `method`: String name of the expose method you wish to use within the stream. Untested what happens if you put in `"stream"`.
+* `objectMode`: No need to pass in. Set to true internally regardless.
+* `verbose`: stream will print out the exposed object to console. Any unsupported options will be printed via `console.warn()`.
+
+* `customInspect`: pass in a truthy value if you prefer the customInspect of the object. (See gotchas if not using `expose.enumeralize()`)
+* `keepValues`: keeps the values, otherwise you get `true` for the value
+* `keepSymbols`: allow symbols to remain uncoerced to strings
+* `regexp`: use a regex to only include properties whose `.toString()` match the regex.
 
 ## Advanced Usage
 
@@ -127,8 +188,8 @@ throughStream.pipe(exposeStream);
   
 ### Accessors (getter/Setter and value/writable)
 
-  Getters and setters, if they exist for a property get triggered when you access a property, and you may get errors thrown.
-  This is a sub problem of the above.
+  This is a subproblem of the `this`.
+  Be aware of getters and setters. Expose methods return some type of "copy" of the object, so if you access a property that happens to be an accessor, and you may get errors thrown. Getters may be triggered when you `console.log` a returned expose object.
   
   Here's an example of that:
   Sometimes an object may implement an `.inspect()` function. By default, console.logging will use this custom `.inspect()`.
@@ -139,10 +200,12 @@ throughStream.pipe(exposeStream);
   Console.logging will lead to throwing errors in the object's `.inspect()`.
   
   Turn off the use of `.inspect()` when logging by doing something like this:
-  
+  ```javascript
     const util = require('util');
-    console.log(util.inspect({customInspect: false}));
-
+	var curiousObj = /** your object here **/ // I should make a runnable example
+	var exposedObj = expose.allKeysNested(curiousObj, {keepValues: true});
+    console.log(util.inspect(expose.allKeysNested(exposedObj, {customInspect: false}));
+  ```
 ### Prototypes of primitives
 
 ``` javascript
@@ -169,6 +232,7 @@ mySymPrototype.isPrototypeOf(Object(mySym)); // true
 ## TODO
 
   * Fix readme...
+  * enumeralize doesn't work on functions?!
   * Rename this project since an npm module exists named 'expose'
   * Make expose loadable in browser
   * add readme example: consider regex feature to grab matching properties -- on it
