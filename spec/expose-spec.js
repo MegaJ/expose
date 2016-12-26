@@ -42,7 +42,7 @@ const objPropLen = propsOfObject.length;
 describe("expose", () => {
 
 	let objWithSymbol = {};
-	objWithSymbol[Symbol("a")] = "a";
+	objWithSymbol[Symbol.for("a")] = "a";
 
 	let objWithNonenum = {};
 	Object.defineProperty(objWithNonenum, "prop", {
@@ -354,28 +354,15 @@ describe("expose", () => {
 			const arrayPro = allKeysArrays(objWithNonenum, {regexp: /pro/});
 			expect(arrayPro[0]).toContain("prop");
 
-			const array__ = allKeysArrays(objWithNonenum, {regexp: /__/});
+		 	const array__ = allKeysArrays(objWithNonenum, {regexp: /__/});
 			expect(array__[0].length).toBe(0);
 			expect(array__[1]).toContain('__proto__');
 		});
 		it("keeps symbols matched by regexes based on Symbols.toString()", () => {
-// 			let objWithNonenum = {};
-// 			Object.defineProperty(objWithNonenum, "prop", {
-// 				value: "super-hidden",
-// 				writable: false,
-// 				enumerable: false
-// 			});
-// 			const propertySymbol = Symbol["propertySymbol"];
-// 			objWithNonenum[propertySymbol] = "You rang?";
-// 			var filteredObj = allKeysNested(objWithNonenum, {regexp: /pro/, keepSymbols: true});
+			 var filteredObj = allKeysArrays(objWithSymbol, {regexp: /a/, keepSymbols: true});
 
-// 			expect(filteredObj.prop).toBeTruthy();
-// 			expect(filteredObj[propertySymbol]).toBeTruthy();
-
-// 			filteredObj = allKeysNested(objWithNonenum, {regexp: /__/, keepSymbols : true});
-// //			console.log("filteredObj: ", filteredObj);
-// 			expect(filteredObj.prop).toBeUndefined();
-// 			expect(filteredObj.__proto__).toBeDefined();
+ 			expect(filteredObj[0][0]).toBe(Symbol.for("a"));
+			expect(filteredObj[1]).not.toContain("__proto__");
 		});
 	});
 	
@@ -406,6 +393,12 @@ describe("expose", () => {
 			expect(exposedObj.length).toEqual(objPropLen + 1);
 		});
 
+		it("filters on regexes", () => {
+			const exposedObj = allKeysFlat(objWithSymbol, {regexp: /__/});
+			console.log("---> ", exposedObj);
+			expect(exposedObj).not.toContain(Symbol.for("a"));
+			expect(exposedObj).toContain("__proto__");
+		});
 	});
 });
 

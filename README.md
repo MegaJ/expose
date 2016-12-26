@@ -168,14 +168,17 @@ mySymPrototype.isPrototypeOf(Object(mySym)); // true
 
 ## TODO
 
-  * consider regex feature to grab matching properties -- on it
-  * allow saving pairs for the methods that return arrays
+  * add readme example: consider regex feature to grab matching properties -- on it
+  * allow saving pairs for the methods that return arrays / allow returning maps
   * write tests
   * learn semantic versioning
   * refactor propAssignerBase() so multiple functions can use it
   * rename functions
   * warn user when using allKeysArrays or allKeysFlat..they can only save keys OR values, but not both
   * strip 'Symbol' from .toString() on symbols.
+  * use Reflect.ownKeys() which gets all property strings and property symbols
+  * warn people if they use options that a function doesn't use (Symbols are always visible)
+  * option to keep nonenumeral properties to be nonenumerable
 
 ## Release History
 

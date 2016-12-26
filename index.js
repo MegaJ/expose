@@ -109,7 +109,6 @@ const expose = {
 			Object.getOwnPropertySymbols(currPrototype).forEach(propAssigner);
 		}
 
-
 		function propAssignerBase(propsMap, obj, regexp, keepSymbols, key) {
 			let enumerableKey;
 			enumerableKey = (!keepSymbols && typeof key === 'symbol') ? key.toString() : key;
@@ -126,18 +125,16 @@ const expose = {
 		
 		return currEnumerableObject;
 	},
+	
 	/**
 	   Get all keys in a nested object format. All values are by default mapped to true,
 	   unless options.keepValues is truthy.
 
 	   Collisions will occur between symbols and nonsymbols because
 	   all properties are made as enumerable string properties.
-	   There is no special expansion of objects that are mapped to by obj's keys.
-	   In other words, values of symbols/nonenumerables/inherited properties of 
-	   objects within obj will not be shown unless opt.keepValues is used. 
 
-	   If the object in question has its own .inspect() function, you may want to use
-	   util.inspect(curiousObj, {customInspect: false}) if you plan on console.logging.
+	   When object in question has its own .inspect() function, you may want to use
+	   util.inspect(curiousObj, {customInspect: false}) if you plan on console.logging the output.
 
 	   returns Object
 	**/
@@ -205,14 +202,15 @@ const expose = {
 		var num = 0;
 		// personally I dislike explicit branching when I can just write
 		// two blocks while(obj && regexp) and while(obj)... but it might save cycles :/
+		// use reflect API probably
 		if (regexp) { 
 			while(obj) {
 				props[num] = Object.getOwnPropertyNames(obj).filter((prop) => {
 					if (!prop.match(regexp)) return false;
 					return true;
 				})
-				props[num] = props[num++].concat(Object.getOwnPropertyNames(obj).filter((prop) => {
-					if (!prop.match(regexp)) return false;
+				props[num] = props[num++].concat(Object.getOwnPropertySymbols(obj).filter((prop) => {
+					if (!prop.toString().match(regexp)) return false;
 					return true;
 				}));
 				obj = Object.getPrototypeOf(obj);
@@ -233,13 +231,23 @@ const expose = {
 	   Will contain duplicate keys if keys of the same name exists in
 	   the prototype chain.
 
+	   Never coerces symbols to strings
+
 	   returns Array
 	**/
 	allKeysFlat(obj, options) { // asFlat? flat? Offer keys or values only, not both, since it's flat
 		options = options || {};
-		const {keepValues, keepSymbols, regexp} = options;
-		
+		const {keepValues, regexp} = options;
 		var props = [];
+		
+		while(obj && regexp) {
+			props = props.concat(Reflect.ownKeys(obj).filter((prop) => {
+				if (!prop.toString().match(regexp)) return false;
+				return true;
+			}));
+			obj = Object.getPrototypeOf(obj);
+		}
+		
 		while(obj) {
 			props = props.concat(Object.getOwnPropertyNames(obj));
 			props = props.concat(Object.getOwnPropertySymbols(obj));
@@ -255,7 +263,7 @@ function warnUser(options) {
 	options = options || {};
 	var unknownOpts = [];
 	
-	Object.keys(options).forEach((passedInOp) => {
+	Reflect.ownKeys(options).forEach((passedInOp) => {
 		if (!(passedInOp in supportedOptions)) { unknownOpts.push(passedInOp)}
 	});
 	if ('objectMode' in options && !options.objectMode) {
