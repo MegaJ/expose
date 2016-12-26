@@ -158,6 +158,7 @@ describe("expose", () => {
 				waitsFor(() => { return flag; }, "The pipe was too slow", 100);
 				runs(() => {
 					expect(expose.allKeysNested).toHaveBeenCalledWith(jasmine.any(Object), {
+						keepSymbols: false,
 						customInspect: false,
 						keepValues: true,
 						objectMode: true,
@@ -173,6 +174,7 @@ describe("expose", () => {
 				waitsFor(() => { return flag; }, "The pipe was too slow", 100);
 				runs(() => {
 					expect(expose.allKeysArrays).toHaveBeenCalledWith(jasmine.any(Object), {
+						keepSymbols: false,
 						customInspect: false,
 						keepValues: true,
 						objectMode: true,

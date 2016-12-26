@@ -11,7 +11,7 @@
 
 **/
 
-'use strict';
+//'use strict';
 const {Transform} = require('stream');
 const util = require('util');
 
@@ -21,29 +21,95 @@ const supportedOptions = {
 	customInspect: true,
 	keepValues: true,
 	objectMode: true, //but really, we force the stream into object mode
-	keepValues: true
+	keepValues: true,
+	keepSymbols: true,
+	regexp: true
 }
 
-const ExposeStream  = function(options) { // You can have default options in es6, but can you do them with destructuring?
+function defaultOptions(arg1) {
+	console.log("arg1:------->  ", arg1);
+	return {
+		method: "allKeysFlat",
+		objectMode: true,
+		verbose: false,
+		customInspect: false,
+		keepValues: false,
+		keepSymbols: false,
+		regexp: false
+	}
+}
+
+// how to give this regexes?
+// I want to do fancy destructuring here
+const ExposeStream  = function(options
+
+// 	{
+// 	method = "allKeysFlat",
+// 	objectMode: this.opt.objectMode = true,
+// 	verbose: this.opt.verbose = false,
+// 	customInspect: this.opt.customInspect = false,
+// 	keepValues = this.opt.false,
+// 	keepSymbols = false,
+// 	regexp = false
+// } = {}
+//= {
+// 	method: "allKeysArrays",
+// 	objectMode: true,
+// 	verbose: false,
+// 	customInspect: false,
+// 	keepValues: false,
+// 	keepSymbols: false,
+// 	regexp: false
+// }
+							  ) { // You can have default options in es6, but can you do them with destructuring?
 	if (!(this instanceof ExposeStream)) {
 		return new ExposeStream(options);
 	}
 	
+	//if (options === null) options = defaultOptions(); //
 	options = options || {};
-	if (options.verbose) warnUser(options);
+	this.opt = {}, opt = this.opt; // 3 char short-hand
+	({
+		method = "allKeysFlat",
+		
+		objectMode: opt.objectMode = true,
+		verbose: opt.verbose = false,
+		customInspect: opt.customInspect = false,
+		keepValues: opt.keepValues = false,
+		keepSymbols: opt.keepSymbols = false,
+		//regexp: opt.regexp = false
+	} = options);
+	this.opt.exposeMethod = expose[method] || expose.allKeysFlat
+
+	// console.log(this.method, objectMode, verbose, customInspect, keepValues, keepSymbols, regexp)
+
 	
-	options.objectMode = true; // why would you want objectMode to ever be false? Errors would happen!
-	this.opt = {};
+	// console.log("this.opt: ", this.opt);
+
+
+	// //console.log(options.method, options.objectMode, options.verbose, options.customInspect, options.keepValues, options.keepSymbols, options.regexp)
+	// //console.log(method, objectMode, verbose, customInspect, keepValues, keepSymbols, regexp)
+	// console.log("args: ", arguments);
+	// //var options = arguments[0];
+	// //console.trace("verbose undefined")
+	// console.log("options: ", options);
+	if (opt.verbose) warnUser(options);
+	
+	//options.objectMode = true; // why would you want objectMode to ever be false? Errors would happen!
+	//this.opt = options;
+	//console.log("---> ", options);
+	//var method = options.method;
 	
 	// Explicitly declare all fields in this.opt object
-	const methodName = options.method;
-	this.opt.exposeMethod = expose[methodName] || expose.allKeysFlat; // consider changing default to allKeysNested
-	this.opt.objectMode = true; //options.objectMode = ('objectMode' in options) ? options.objectMode : true; 
-	this.opt.verbose = ('verbose' in options) ? options.verbose : false;
-	this.opt.customInspect = ('customInspect' in options) ? options.customInspect : false;
-	this.opt.keepValues = ('keepValues' in options) ? options.keepValues : false;
+	// const methodName = options.method;
+	// this.opt.exposeMethod = expose[method] || expose.allKeysFlat; // consider changing default to allKeysNested
+	// this.opt.objectMode = true; //options.objectMode = ('objectMode' in options) ? options.objectMode : true; 
+	// this.opt.verbose = ('verbose' in options) ? options.verbose : false;
+	// this.opt.customInspect = ('customInspect' in options) ? options.customInspect : false;
+	// this.opt.keepValues = ('keepValues' in options) ? options.keepValues : false;
+	// this.opt.keepSymbols = ('keepSymbols' in options) ? options.keepSymbols : false; // TODO: Implement
 
-	Transform.call(this, options);
+	Transform.call(this, this.opt);
 }
 
 ExposeStream.prototype._transform = function(obj, enc, cb) {
@@ -76,7 +142,7 @@ const expose = {
 	 **/
 	enumeralize(obj, _options) {
 		const options = _options || {};
-		const {regexp, keepSym} = options;
+		const {regexp, keepSymbols, keepValues} = options;
 
 		var prototypeChain = obj ? [obj] : [];
 		var currPrototype;
@@ -129,9 +195,9 @@ const expose = {
 
 	   returns Object
 	**/
-	allKeysNested(obj, _options) {
-		const options = _options || {};
-		const {regexp, keepValues} = options;
+	allKeysNested(obj, {regexp, keepValues, keepSymbols} = {}) { // asNested
+		//const options = _options || {};
+		//const {regexp, keepValues, keepSymbols} = options;
 		
 		var lowestDescendentProps = {};
 		var props = lowestDescendentProps;
@@ -148,12 +214,7 @@ const expose = {
 				propsMap[enumerableKey] = true;
 				return;
 			} else if (keepValues) {
-				try {
-					propsMap = Object.defineProperty(propsMap, key, descriptor);
-				} catch (e) {
-					console.error("ERRORRRRRRRR");
-					throw new Error("Original error message: ", e.message, "\n a getter / setter probably was inadvertently triggered!");
-				}
+				propsMap = Object.defineProperty(propsMap, key, descriptor);
 				return;
 			}
 			
@@ -172,7 +233,7 @@ const expose = {
 				props = props["__objParent"];
 			}
 			obj = objParent;
-			propAssigner = propAssignerBase.bind(null, props, obj, regexp); // override the index binding that forEach has
+			propAssigner = propAssignerBase.bind(null, props, obj, regexp);
 		}
 		
 		return lowestDescendentProps;
@@ -191,7 +252,7 @@ const expose = {
 
 	   returns Array
 	**/
-	allKeysArrays(obj, options) {
+	allKeysArrays(obj, options) { // asArrays
 		
 		var props = [];
 		var num = 0;
@@ -210,7 +271,7 @@ const expose = {
 
 	   returns Array
 	**/
-	allKeysFlat(obj, options) {
+	allKeysFlat(obj, options) { // asFlat
 		
 		var props = [];
 		while(obj) {

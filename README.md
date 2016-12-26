@@ -154,11 +154,12 @@ throughStream.pipe(exposeStream);
 
 ## TODO
 
-  * consider regex feature to grab matching properties
+  * consider regex feature to grab matching properties -- on it
   * allow saving pairs for the methods that return arrays
   * write tests
   * learn symantic versioning
-  * consider some rewiring of the exposed object to avoid errors thrown because of lost `this.whateverProperty` references. 
+  * refactor propAssignerBase() so multiple functions can use it
+  * rename functions
 
 ## Release History
 
